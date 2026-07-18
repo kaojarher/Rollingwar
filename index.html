@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎰 動畫/Emoji 完美容錯地下城 ⚔️</title>
+    <style>
+        :root {
+            --bg-color: #0d0d10;
+            --panel-color: #1a1a22;
+            --text-color: #f0f0f0;
+            --accent-color: #ffcc00;
+            --cell-bg: #23232e;
+            
+            /* 圖片路徑：若同路徑下找不到此檔案，會自動切換為備援 Emoji */
+            --spritesheet-url: url('image_0.png');
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; user-select: none; }
+        body { background-color: var(--bg-color); color: var(--text-color); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 10px; overflow: hidden; }
+
+        .game-container {
+            width: 100%;
+            max-width: 460px;
+            background-color: var(--panel-color);
+            border-radius: 20px;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+            border: 2px solid #333;
+        }
+
+        h1 { text-align: center; font-size: 1.4rem; color: var(--accent-color); letter-spacing: 2px; }
+
+        .status-board {
+            display: flex;
+            justify-content: space-between;
+            background: rgba(0,0,0,0.5);
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        .grid-container {
+            background: #050507;
+            border: 3px solid #444;
+            border-radius: 14px;
+            padding: 8px;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            grid-template-rows: repeat(5, 1fr);
+            gap: 6px;
+            aspect-ratio: 1 / 1;
+        }
+
+        .cell {
+            background: var(--cell-bg);
+            border-radius: 6px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 戰鬥動畫容器 */
+        .unit-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0; left: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1;
+        }
+
+        /* 備援層：底層 Emoji (圖片讀取失敗時會露出來) */
+        .unit-emoji {
+            font-size: 2rem;
+            position: absolute;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* 核心層：上層圖片 (讀取成功時會蓋住 Emoji) */
+        .unit-visual {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0; left: 0;
+            background-image: var(--spritesheet-url);
+            background-size: 500% 600%; 
+            background-repeat: no-repeat;
+            z-index: 2; /* 確保在 Emoji 之上 */
+            pointer-events: none;
+        }
+
+        /* 🛠️ CSS 精靈圖位置映射 */
+        .type-H0 .unit-visual { background-position: 0% 0%; }
+        .type-H1 .unit-visual { background-position: 25% 0%; }
+        .type-H2 .unit-visual { background-position: 50% 0%; }
+        .type-H3 .unit-visual { background-position: 75% 0%; }
+        .type-H4 .unit-visual { background-position: 100% 0%; }
+
+        .type-M0 .unit-visual { background-position: 0% 20%; }
+        .type-M1 .unit-visual { background-position: 25% 20%; }
+        .type-M2 .unit-visual { background-position: 50% 20%; }
+        .type-M3 .unit-visual { background-position: 75% 20%; }
+        .type-M4 .unit-visual { background-position: 100% 20%; }
+
+        /* 巨大單位映射 */
+        .type-LH0 .unit-visual { background-position: 0% 80%; }
+        .type-LH1 .unit-visual { background-position: 25% 80%; }
+        .type-LH2 .unit-visual { background-position: 50% 80%; }
+        .type-LH3 .unit-visual { background-position: 75% 80%; }
+        .type-LH4 .unit-visual { background-position: 100% 80%; }
+
+        .type-LM0 .unit-visual { background-position: 0% 100%; }
+        .type-LM1 .unit-visual { background-position: 25% 100%; }
+        .type-LM2 .unit-visual { background-position: 50% 100%; }
+        .type-LM3 .unit-visual { background-position: 75% 100%; }
+        .type-LM4 .unit-visual { background-position: 100% 100%; }
+
+        /* 戰鬥動畫 */
+        @keyframes dynamic-strike {
+            0% { transform: translate(0, 0) scale(1); z-index: 50; }
+            15% { transform: translate(calc(var(--move-x) * -0.1), calc(var(--move-y) * -0.1)) scale(1.1); }
+            35% { transform: translate(var(--move-x), var(--move-y)) scale(1.35); } 
+            50% { transform: translate(var(--move-x), var(--move-y)) scale(1.35); } 
+            70% { transform: translate(0, 0) scale(1); z-index: 1; }
+            100% { transform: translate(0, 0) scale(1); }
+        }
+        .action-melee { animation: dynamic-strike var(--melee-duration) cubic-bezier(0.36, 0.07, 0.19, 0.97) both; }
+        .hit-flash { background-color: rgba(255, 255, 255, 0.4) !important; }
+
+        /* 血條與標籤 */
+        .hp-bar-container { position: absolute; top: 2px; left: 2px; right: 2px; height: 4px; background: rgba(0,0,0,0.6); border-radius: 2px; overflow: hidden; z-index: 4; }
+        .hp-bar { height: 100%; background: #55ff55; width: 100%; transition: width 0.15s ease; }
+        .size-badge { position: absolute; bottom: 1px; right: 1px; font-size: 0.6rem; background: rgba(0,0,0,0.8); color: var(--accent-color); padding: 1px 3px; border-radius: 4px; font-weight: bold; z-index: 3; }
+
+        /* 死亡與吸收 */
+        .absorbed .unit-container, .dead .unit-container, .dead .hp-bar-container, .dead .size-badge { opacity: 0 !important; pointer-events: none; transition: opacity 0.2s; }
+        .dead { background: #14141a !important; }
+
+        button { width: 100%; padding: 12px; font-size: 1.2rem; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .btn-spin { background: linear-gradient(135deg, #ffcc00, #ff9900); color: #000; box-shadow: 0 4px 15px rgba(255,153,0,0.3); }
+        .btn-spin:disabled { background: #444 !important; color: #888 !important; cursor: not-allowed; box-shadow: none; }
+        .log-panel { background: rgba(0,0,0,0.6); border-radius: 8px; height: 95px; padding: 8px 12px; font-size: 0.85rem; overflow-y: auto; line-height: 1.5; border-left: 4px solid var(--accent-color); }
+        .log-melee { color: #ffcc00; font-weight: bold;}
+        .log-win { color: #55ff55; font-weight: bold; }
+        .log-lose { color: #ff5555; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <h1>🎰 完美容錯地下城</h1>
+    <div class="status-board">
+        <div>🧙‍♂️ LV: <span id="txt-lv">1</span></div>
+        <div>💰 $ <span id="txt-coin">100</span></div>
+        <div>👹 WAVE: <span id="txt-stage">1</span></div>
+    </div>
+    <div class="grid-container" id="grid-board"></div>
+    <button class="btn-spin" id="btn-spin" onclick="startRound()">SPIN & FIGHT !!</button>
+    <div class="log-panel" id="log-panel"><div>點擊 SPIN 開始部署，若找不到圖檔會自動以原版 Emoji 顯示！</div></div>
+</div>
+
+<script>
+    // 建立完整的數據對照映射
+    const MEMORY_MAP = {
+        'H0': '🧙‍♂️', 'H1': '⚔️', 'H2': '🏹', 'H3': '🛡️', 'H4': '❤️',
+        'M0': '👹', 'M1': '💀', 'M2': '🐉', 'M3': '👻', 'M4': '🎃'
+    };
+
+    const HERO_KEYS = ['H0', 'H1', 'H2', 'H3', 'H4'];
+    const MONSTER_KEYS = ['M0', 'M1', 'M2', 'M3', 'M4'];
+    
+    let gameState = { lv: 1, coin: 100, stage: 1 };
+    let isBattling = false;
+    let activeUnits = [];
+
+    // 初始化網格
+    const board = document.getElementById('grid-board');
+    for (let i = 0; i < 25; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.id = `cell-${i}`;
+        
+        const container = document.createElement('div');
+        container.className = 'unit-container';
+        container.id = `container-${i}`;
+
+        const emojiSpan = document.createElement('span');
+        emojiSpan.className = 'unit-emoji';
+        emojiSpan.id = `emoji-${i}`;
+        emojiSpan.innerText = '❓';
+
+        const visual = document.createElement('div');
+        visual.className = 'unit-visual';
+        visual.id = `visual-${i}`;
+
+        container.appendChild(emojiSpan);
+        container.appendChild(visual);
+        cell.appendChild(container);
+        board.appendChild(cell);
+    }
+
+    function updateUI() {
+        document.getElementById('txt-lv').innerText = gameState.lv;
+        document.getElementById('txt-coin').innerText = gameState.coin;
+        document.getElementById('txt-stage').innerText = gameState.stage;
+    }
+
+    function addLog(msg, className = '') {
+        const lp = document.getElementById('log-panel');
+        const line = document.createElement('div');
+        if(className) line.className = className;
+        line.innerText = msg;
+        lp.appendChild(line);
+        lp.scrollTop = lp.scrollHeight;
+    }
+
+    function startRound() {
+        if (isBattling) return;
+        isBattling = true;
+        document.getElementById('btn-spin').disabled = true;
+
+        for(let i=0; i<25; i++) {
+            const cell = document.getElementById(`cell-${i}`);
+            const container = document.getElementById(`container-${i}`);
+            cell.className = 'cell';
+            container.className = 'unit-container';
+            container.style.cssText = ''; 
+            const badge = cell.querySelector('.size-badge');
+            if(badge) badge.remove();
+            const hp = cell.querySelector('.hp-bar-container');
+            if(hp) hp.remove();
+        }
+
+        let ticks = 0;
+        const rollInterval = setInterval(() => {
+            for (let i = 0; i < 25; i++) {
+                const isHero = Math.random() > 0.5;
+                const pool = isHero ? HERO_KEYS : MONSTER_KEYS;
+                const randomKey = pool[Math.floor(Math.random() * pool.length)];
+                
+                // 直接更新 DOM
+                containerRender(i, randomKey);
+            }
+            ticks++;
+            if (ticks > 10) {
+                clearInterval(rollInterval);
+                buildBattlefield();
+            }
+        }, 50);
+    }
+
+    function containerRender(index, key) {
+        const container = document.getElementById(`container-${index}`);
+        const emojiSpan = document.getElementById(`emoji-${index}`);
+        
+        // 移除舊的型態 class
+        container.className = 'unit-container';
+        
+        // 賦予新的型態 class (控制上層 CSS 圖片位置)
+        container.classList.add(`type-${key}`);
+        
+        // 更改底層備援 Emoji 文字
+        const baseKey = key.replace('L', ''); // 如果是大圖，取原來的 Emoji
+        emojiSpan.innerText = MEMORY_MAP[baseKey] || '❓';
+    }
+
+    function buildBattlefield() {
+        let matrix = [];
+        activeUnits = [];
+        
+        for (let i = 0; i < 25; i++) {
+            const container = document.getElementById(`container-${i}`);
+            const currentClass = [...container.classList].find(cls => cls.startsWith('type-'));
+            const currentKey = currentClass ? currentClass.replace('type-', '') : 'H0';
+            const isHero = currentKey.startsWith('H');
+            
+            matrix.push({ id: i, row: Math.floor(i/5), col: i%5, type: isHero ? 'H' : 'M', key: currentKey, merged: false, size: 1 });
+        }
+
+        // 2x2 合併檢查
+        for (let r = 0; r < 4; r++) {
+            for (let c = 0; c < 4; c++) {
+                let idx = r * 5 + c;
+                let cType = matrix[idx].type;
+                if (!matrix[idx].merged && matrix[idx+1].type === cType && !matrix[idx+1].merged && matrix[idx+5].type === cType && !matrix[idx+5].merged && matrix[idx+6].type === cType && !matrix[idx+6].merged) {
+                    matrix[idx].merged = true; 
+                    matrix[idx+1].merged = true; matrix[idx+5].merged = true; matrix[idx+6].merged = true; 
+                    matrix[idx].size = 4;
+                }
+            }
+        }
+
+        matrix.forEach((data, i) => {
+            const cell = document.getElementById(`cell-${i}`);
+            let maxHp = 50;
+            let atk = 15;
+
+            if (data.size > 1) {
+                // 將渲染切換為巨大單位的圖片位置
+                containerRender(i, 'L' + data.key);
+                
+                const badge = document.createElement('span');
+                badge.className = 'size-badge';
+                badge.innerText = `×4`;
+                cell.appendChild(badge);
+                maxHp = 200;
+                atk = 45;
+            } else if (data.merged) {
+                cell.classList.add('absorbed');
+                return;
+            }
+
+            const hpContainer = document.createElement('div');
+            hpContainer.className = 'hp-bar-container';
+            const hpBar = document.createElement('div');
+            hpBar.className = 'hp-bar';
+            hpContainer.appendChild(hpBar);
+            cell.appendChild(hpContainer);
+
+            activeUnits.push({
+                id: i,
+                cell: cell,
+                container: document.getElementById(`container-${i}`),
+                row: data.row,
+                col: data.col,
+                type: data.type,
+                hp: maxHp,
+                maxHp: maxHp,
+                atk: atk,
+                hpBar: hpBar
+            });
+        });
+
+        addLog(`⚔️ 戰線部署完畢！至死方休亂鬥開打！`, 'log-melee');
+        loopBattleRound();
+    }
+
+    function loopBattleRound() {
+        const heroes = activeUnits.filter(u => u.type === 'H' && u.hp > 0);
+        const monsters = activeUnits.filter(u => u.type === 'M' && u.hp > 0);
+
+        if (heroes.length === 0 || monsters.length === 0) {
+            endBattleAction(heroes.length, monsters.length);
+            return;
+        }
+
+        activeUnits.forEach(u => u.container.classList.remove('action-melee'));
+
+        activeUnits.forEach(unit => {
+            if (unit.hp <= 0) return;
+            const enemies = unit.type === 'H' ? monsters : heroes;
+            if (enemies.length === 0) return;
+
+            let target = enemies[0];
+            let minDst = Infinity;
+            enemies.forEach(e => {
+                let dst = Math.pow(unit.row - e.row, 2) + Math.pow(unit.col - e.col, 2);
+                if (dst < minDst) { minDst = dst; target = e; }
+            });
+
+            const myRect = unit.cell.getBoundingClientRect();
+            const targetRect = target.cell.getBoundingClientRect();
+            
+            unit.container.style.setProperty('--move-x', `${targetRect.left - myRect.left}px`);
+            unit.container.style.setProperty('--move-y', `${targetRect.top - myRect.top}px`);
+            unit.container.style.setProperty('--melee-duration', `${0.35 + Math.random() * 0.15}s`);
+
+            unit.container.classList.add('action-melee');
+
+            setTimeout(() => {
+                if (unit.hp <= 0 || target.hp <= 0) return;
+                target.cell.classList.add('hit-flash');
+                setTimeout(() => target.cell.classList.remove('hit-flash'), 60);
+
+                let dmg = Math.floor(unit.atk * (0.8 + Math.random() * 0.4));
+                target.hp = Math.max(0, target.hp - dmg);
+                target.hpBar.style.width = `${(target.hp / target.maxHp) * 100}%`;
+
+                if (target.hp <= 0) target.cell.classList.add('dead');
+            }, 140);
+        });
+
+        setTimeout(() => {
+            activeUnits = activeUnits.filter(u => u.hp > 0);
+            loopBattleRound();
+        }, 700);
+    }
+
+    function endBattleAction(heroCount, monsterCount) {
+        document.querySelectorAll('.unit-container').forEach(c => c.classList.remove('action-melee'));
+        if (heroCount > 0 && monsterCount === 0) {
+            let winCoin = 15 + heroCount * 2;
+            gameState.coin += winCoin;
+            gameState.stage += 1;
+            addLog(`🎉 勝利！殘存 ${heroCount} 個英雄單位，金幣 +${winCoin}`, 'log-win');
+        } else {
+            gameState.coin = Math.max(0, gameState.coin - 20);
+            addLog(`😭 戰敗！我方全軍覆沒，扣除金幣 20。`, 'log-lose');
+        }
+        updateUI();
+        isBattling = false;
+        document.getElementById('btn-spin').disabled = false;
+    }
+
+    updateUI();
+</script>
+</body>
+</html>
