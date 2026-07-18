@@ -93,37 +93,50 @@
             position: absolute;
             top: 0; left: 0;
             background-image: var(--spritesheet-url);
-            background-size: 500% 600%; 
+            /* 圖檔實際為 7 欄 × 5 列，故 size = 700% 500%（單格） */
+            background-size: 700% 500%; 
             background-repeat: no-repeat;
             z-index: 2; /* 確保在 Emoji 之上 */
             pointer-events: none;
         }
 
-        /* 🛠️ CSS 精靈圖位置映射 */
-        .type-H0 .unit-visual { background-position: 0% 0%; }
-        .type-H1 .unit-visual { background-position: 25% 0%; }
-        .type-H2 .unit-visual { background-position: 50% 0%; }
-        .type-H3 .unit-visual { background-position: 75% 0%; }
-        .type-H4 .unit-visual { background-position: 100% 0%; }
+        /* 🛠️ CSS 精靈圖位置映射
+           圖檔實際格線為 7 欄 × 5 列（非原本假設的 5 欄 × 6 列）。
+           單格座標公式： x = 欄index/(7-1)*100%， y = 列index/(5-1)*100%
+           第 0 列＝英雄角色列，第 1 列＝怪物角色列（挑選 7 欄中有代表性的 5 欄） */
+        .type-H0 .unit-visual { background-position: 0%      0%; }   /* 第0欄 魔法使い */
+        .type-H1 .unit-visual { background-position: 16.667% 0%; }   /* 第1欄 ワラロ */
+        .type-H2 .unit-visual { background-position: 33.333% 0%; }   /* 第2欄 オーバー */
+        .type-H3 .unit-visual { background-position: 66.667% 0%; }   /* 第4欄 バラダン */
+        .type-H4 .unit-visual { background-position: 100%    0%; }   /* 第6欄 癒し屋 */
 
-        .type-M0 .unit-visual { background-position: 0% 20%; }
-        .type-M1 .unit-visual { background-position: 25% 20%; }
-        .type-M2 .unit-visual { background-position: 50% 20%; }
-        .type-M3 .unit-visual { background-position: 75% 20%; }
-        .type-M4 .unit-visual { background-position: 100% 20%; }
+        .type-M0 .unit-visual { background-position: 0%      25%; } /* 第0欄 オガ */
+        .type-M1 .unit-visual { background-position: 16.667% 25%; } /* 第1欄 スキタロ */
+        .type-M2 .unit-visual { background-position: 33.333% 25%; } /* 第2欄 ドラゴン */
+        .type-M3 .unit-visual { background-position: 66.667% 25%; } /* 第4欄 グースト */
+        .type-M4 .unit-visual { background-position: 83.333% 25%; } /* 第5欄 ゴラトン */
 
-        /* 巨大單位映射 */
-        .type-LH0 .unit-visual { background-position: 0% 80%; }
-        .type-LH1 .unit-visual { background-position: 25% 80%; }
-        .type-LH2 .unit-visual { background-position: 50% 80%; }
-        .type-LH3 .unit-visual { background-position: 75% 80%; }
-        .type-LH4 .unit-visual { background-position: 100% 80%; }
+        /* 巨大單位映射：第5列（index 4）裡只有「英雄合體」與「怪物合體」兩張橫跨2欄的合圖，
+           並非每種角色各自獨立一張，因此所有 LH/LM 變體統一指向同一張合圖，
+           並用「切片公式」把 2欄寬的圖精準縮放對齊到單一格子內：
+           size = (總欄數/切片欄數)*100% ， position = 切片起始欄/(總欄數-切片欄數)*100% */
+        .type-LH0 .unit-visual,
+        .type-LH1 .unit-visual,
+        .type-LH2 .unit-visual,
+        .type-LH3 .unit-visual,
+        .type-LH4 .unit-visual {
+            background-size: 350% 500%;   /* 7/2 欄, 5列 */
+            background-position: 0% 100%; /* 起始於第0欄，第4列 */
+        }
 
-        .type-LM0 .unit-visual { background-position: 0% 100%; }
-        .type-LM1 .unit-visual { background-position: 25% 100%; }
-        .type-LM2 .unit-visual { background-position: 50% 100%; }
-        .type-LM3 .unit-visual { background-position: 75% 100%; }
-        .type-LM4 .unit-visual { background-position: 100% 100%; }
+        .type-LM0 .unit-visual,
+        .type-LM1 .unit-visual,
+        .type-LM2 .unit-visual,
+        .type-LM3 .unit-visual,
+        .type-LM4 .unit-visual {
+            background-size: 350% 500%;  /* 7/2 欄, 5列 */
+            background-position: 40% 100%; /* 起始於第2欄 → 2/(7-2)*100% */
+        }
 
         /* 戰鬥動畫 */
         @keyframes dynamic-strike {
